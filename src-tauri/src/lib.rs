@@ -20,35 +20,25 @@ pub fn run() {
 /// Fetches PSI data from the API, optionally for a specific date
 /// returns a structured PsiResponse 
 #[tauri::command]
-fn fetch_psi(date: Option<String>) -> Result<PsiResponse, String> {
-    use network::client::HttpsClient;
-    use network::response::extract_body;
+fn fetch_psi() -> Result<PsiResponse, String> {
+    use network::client::get;
     use psi::parser::parse_psi_response;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
-    // Create HTTPS client for api-open.data.gov.sg
-    let client = HttpsClient::new("api-open.data.gov.sg", 443)
+    // Construct API path 
+    let epoch_ns = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| e.to_string())?
+        .as_nanos();
+    let path = format!("https://www.haze.gov.sg/api/airquality/jsondata/{}", epoch_ns);
+
+    // Send GET request and read raw response
+    let body = get(&path).map_err(|e| e.to_string())?;
+
+    let parsed = parse_psi_response(&body)
         .map_err(|e| e.to_string())?;
 
-    // Construct API path with optional date query parameter
-    let path = match date {
-        Some(date_value) if !date_value.trim().is_empty() => {
-            format!("/v2/real-time/api/psi?date={}", date_value)
-        }
-        _ => "/v2/real-time/api/psi".to_string(),
-    };
-
-    // Send GET request to API and handle response
-    let raw = client
-        .get(&path)
-        .map_err(|e| e.to_string())?;
-
-    let json = extract_body(&raw)
-        .map_err(|e| e.to_string())?;
-
-    let parsed = parse_psi_response(&json)
-        .map_err(|e| e.to_string())?;
-
-    println!("Parsed PSI Response: {:#?}", parsed);
+    // println!("Parsed PSI Response: {:#?}", parsed);
 
     // Return the parsed PSI response
     Ok(parsed)
