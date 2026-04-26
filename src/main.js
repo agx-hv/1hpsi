@@ -9,12 +9,12 @@ const SERIES_COLORS = [
 ];
 
 const VALUE_THRESHOLDS = [
-    { min: 0,   max: 50,       color: '#30b94d', name: 'Green' },
-    { min: 50,  max: 100,      color: '#a4cc35', name: 'Lime' },
-    { min: 100, max: 200,      color: '#e8c820', name: 'Yellow' },
-    { min: 200, max: 300,      color: '#ff9500', name: 'Orange' },
-    { min: 300, max: 400,      color: '#ff3b30', name: 'Red' },
-    { min: 400, max: Infinity,  color: '#8b4513', name: 'Brown' },
+    { min: 0,   max: 50,       color: '#30b94d', name: 'Good' },
+    { min: 50,  max: 100,      color: '#a4cc35', name: 'Moderate' },
+    { min: 100, max: 200,      color: '#e8c820', name: 'Unhealthy' },
+    { min: 200, max: 300,      color: '#ff9500', name: 'Very Unhealthy' },
+    { min: 300, max: 400,      color: '#ff3b30', name: 'Hazardous' },
+    { min: 400, max: Infinity,  color: '#8b4513', name: 'Very Hazardous' },
 ];
 
 function valueColor(v) {
@@ -397,7 +397,7 @@ function buildLegend() {
 
     const thead = document.createElement('thead');
     const headRow = document.createElement('tr');
-    for (const h of ['Color', 'Name', 'Range']) {
+    for (const h of ['Color', 'Descriptor', 'Range']) {
         const th = document.createElement('th');
         th.textContent = h;
         headRow.appendChild(th);
