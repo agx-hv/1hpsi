@@ -1,25 +1,67 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+use std::collections::HashMap;
+
 #[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
+fn update() -> Vec<HashMap<String, String>> {
+    let parsed = fetch_psi().unwrap();
+    let pm25_data = parsed.chart_1hr_pm25;
+    let (north, south, east, west, central) = (
+        pm25_data.north.output(),
+        pm25_data.south.output(),
+        pm25_data.east.output(),
+        pm25_data.west.output(),
+        pm25_data.central.output(),
+    );
+    let mut output = vec![];
+    for i in 0..24 {
+        let mut record = HashMap::new();
+        let (n, s, e, w, c) = (
+            north[i].1.clone(),
+            south[i].1.clone(),
+            east[i].1.clone(),
+            west[i].1.clone(),
+            central[i].1.clone(),
+        );
+        let mut mean = 0.0;
+        for v in [&n, &s, &e, &w, &c] {
+            mean += str::parse::<f32>(v).unwrap() / 5.0;
+        }
+        record.insert("timestamp".to_string(), north[i].0.clone());
+        record.insert("Overall".to_string(), mean.round().to_string());
+        record.insert("North".to_string(), n);
+        record.insert("South".to_string(), s);
+        record.insert("East".to_string(), e);
+        record.insert("West".to_string(), w);
+        record.insert("Central".to_string(), c);
+        output.push(record);
+    }
+    output
 }
 
 mod network;
 mod psi;
 use psi::models::PsiResponse;
 
+use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            #[cfg(debug_assertions)] // only include this code on debug builds
+            {
+                let window = app.get_webview_window("main").unwrap();
+                window.open_devtools();
+                window.close_devtools();
+            }
+            Ok(())
+        })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![update])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
 /// Fetches PSI data from the API, optionally for a specific date
 /// returns a structured PsiResponse 
-#[tauri::command]
 fn fetch_psi() -> Result<PsiResponse, String> {
     use network::client::get;
     use psi::parser::parse_psi_response;
@@ -37,8 +79,6 @@ fn fetch_psi() -> Result<PsiResponse, String> {
 
     let parsed = parse_psi_response(&body)
         .map_err(|e| e.to_string())?;
-
-    // println!("Parsed PSI Response: {:#?}", parsed);
 
     // Return the parsed PSI response
     Ok(parsed)
