@@ -74,21 +74,21 @@ Download the latest APK from the Releases section.
 ---
 
 ## 🚀 Run in development
-
+```bash
 cargo tauri dev
-
+```
 ---
 
 ## 📱 Build for Android (development)
-
+```bash
 cargo tauri android dev
-
+```
 ---
 
 ## 📦 Build for Android (release APK)
-
+```bash
 cargo tauri android build
-
+```
 ---
 
 ## 🌐 Frontend
