@@ -99,7 +99,7 @@ function buildChart() {
     let vMax = -Infinity;
     for (const row of DATA) {
         for (const key of SERIES_LABELS) {
-            const v = row[key];
+            const v = +row[key];
             if (v > vMax) vMax = v;
         }
     }

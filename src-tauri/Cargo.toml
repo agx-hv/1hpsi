@@ -1,6 +1,6 @@
 [package]
 name = "onehourpsi"
-version = "0.1.0"
+version = "0.1.1"
 description = "An interface for one hour psi readings"
 authors = ["Jon", "Keith"]
 edition = "2021"
