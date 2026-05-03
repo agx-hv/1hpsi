@@ -1,5 +1,6 @@
 'use strict';
 const { invoke } = window.__TAURI__.core;
+const { openUrl } = window.__TAURI__.opener;
 
 /* ── data generation ── */
 const SERIES_LABELS = ['Overall', 'North', 'South', 'East', 'West', 'Central'];
@@ -259,9 +260,10 @@ function buildChart() {
         <span class="tt-value">${row[key]}</span>
       </div>`;
         }
+        const isLeftHalf = (idx < 13);
         tooltip.innerHTML = html;
-        tooltip.style.left = (ev.clientX - rect.left + 16) + 'px';
-        tooltip.style.top = (ev.clientY - rect.top - 10) + 'px';
+        tooltip.style.left = (ev.clientX - !isLeftHalf*rect.left*4 + isLeftHalf*32) + 'px';
+        tooltip.style.top = (ev.clientY - 10) + 'px';
         tooltip.classList.remove('hidden');
     });
 
@@ -476,6 +478,10 @@ async function refreshAll() {
 
 async function update() {
     DATA = await invoke("update");
+}
+
+async function openExternal(url) {
+    await openUrl(url);
 }
 
 window.addEventListener("DOMContentLoaded", () => {

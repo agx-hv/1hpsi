@@ -40,7 +40,7 @@
     <section class="hero panel">
       <div class="hero-inner">
         <h2>Version</h2>
-        <p>v0.1.1</p>
+        <p>v0.1.2</p>
       </div>
     </section>
 
@@ -61,8 +61,8 @@
                viewBox="0 0 800 400"
                preserveAspectRatio="xMidYMid meet"
                aria-label="Timeseries line chart"></svg>
-          <div id="tooltip" class="tooltip hidden" role="tooltip"></div>
         </div>
+        <div id="tooltip" class="tooltip hidden" role="tooltip"></div>
       </section>
     </div>
 
@@ -97,15 +97,20 @@
   </main>
 
   <footer class="app-footer">
-      <a href="https://www.haze.gov.sg/resources/1-hr-pm2.5-readings">
+      <a href="#" onclick="openExternal('https://www.haze.gov.sg/resources/1-hr-pm2.5-readings')">
           https://www.haze.gov.sg/resources/1-hr-pm2.5-readings
       </a>
-      <p> Formulas obtained from: <a href="http://www.haze.gov.sg/docs/default-source/faq/computation-of-the-pollutant-standards-index-(psi).pdf">http://www.haze.gov.sg/docs/default-source/faq/computation-of-the-pollutant-standards-index-(psi).pdf</a></p>
+      <p> 
+          Formulas obtained from: 
+          <a href="#" onclick="openExternal('https://www.haze.gov.sg/docs/default-source/faq/computation-of-the-pollutant-standards-index-(psi).pdf')">
+              https://www.haze.gov.sg/docs/default-source/faq/computation-of-the-pollutant-standards-index-(psi).pdf
+          </a>
+      </p>
       <br>
       <p> Notes: The actual PSI formula is calculated from the maximum of all sub-indices of the different pollutants: PM2.5, PM10, SO2, CO, O3 and NO2. During hazy periods, PM2.5 is most abundant in the atmosphere. Because of this, we have excluded all other pollutant sub-indices in our calculations. </p>
       <br>
-      <p>Created By: <a href="https://github.com/agx-hv/">Jon Koo</a>, 
-      <a href="https://github.com/kwokkeith/">Kwok Keith</a> </p>
+      <p>Created By: <a href="#" onclick="openExternal('https://github.com/agx-hv/')">Jon Koo</a>, 
+      <a href="#" onclick="openExternal('https://github.com/kwokkeith/')">Kwok Keith</a> </p>
   </footer>
   <script src="main.js"></script>
 </body>
