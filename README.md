@@ -6,6 +6,12 @@ It converts raw PM2.5 values into a **PSI-equivalent scale** using NEA’s offic
 
 ---
 
+## 🧠 Purpose
+
+To provide a simple, fast view of air quality in Singapore by focusing on PM2.5, which is often the main pollutant during haze periods.
+
+---
+
 ## 💡 What this app does
 
 - Shows real-time **1-hour PM2.5 readings**
@@ -111,8 +117,3 @@ The build process generates an **APK file** in the Android output directory. Thi
 - PSI reference formula  
   https://www.haze.gov.sg/docs/default-source/faq/computation-of-the-pollutant-standards-index-(psi).pdf
 
----
-
-## 🧠 Purpose
-
-To provide a simple, fast view of air quality in Singapore by focusing on PM2.5, which is often the main pollutant during haze periods.
