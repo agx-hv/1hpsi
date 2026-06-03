@@ -19,10 +19,11 @@ my $tauri_conf = "src-tauri/tauri.conf.json";
 sub get_file_version {
     my ($fname) = @_;
     my ($ext) = $fname =~ /.+\.(toml|json)$/;
+    die "Invalid extension for file: $fname, should be .toml or .json\n" if !defined $ext;
     my $re = $re{$ext};
     my $i = 1;
 
-    tie my @lines, "Tie::File", $fname or die "Cannot open $fname $!";
+    tie my @lines, "Tie::File", $fname or die "Cannot open $fname: $!";
     for my $row (@lines) {
         if (my ($version) = $row =~ $re) {
             print CYAN "Found $version in $fname:", RESET, "\n";
@@ -33,6 +34,7 @@ sub get_file_version {
         ++$i;
     }
     untie(@lines);
+    return;
 }
 
 # Returns incremented patch version by one 
@@ -74,12 +76,12 @@ sub set_file_version {
     my $re = $re{$ext};
     my $i = 1;
 
-    tie my @lines, 'Tie::File', $fname or die "Cannot open $fname $!";
+    tie my @lines, 'Tie::File', $fname or die "Cannot open $fname: $!";
     print "\n---------- Modifying $fname ----------\n\n";
     for my $row (@lines) {
         if (my ($version) = $row =~ $re) {
             print RED "- $i |\t $row", RESET, "\n";
-            $row =~ s/$version/$newver/;
+            $row =~ s/\Q$version\E/$newver/;
             print GREEN "+ $i |\t $row", RESET, "\n";
         }
         ++$i;
@@ -91,14 +93,17 @@ sub set_file_version {
 print "Searching for versions...\n\n";
 
 my $v1 = get_file_version($cargo_toml);
+die "No version found in $cargo_toml\n" if !defined $v1;
+
 my $v2 = get_file_version($tauri_conf);
+die "No version found in $tauri_conf\n" if !defined $v2;
 
 # Prompt user if versions are different in both files
 if ($v1 ne $v2) {
     warn YELLOW "Version mismatch! Continue? (y/N)", RESET, "\n";
     my $stdin = <STDIN>;
     chomp($stdin);
-    die "Aborted\n" if (lc($stdin) ne lc("y"));
+    die "Aborted\n" if (lc($stdin) ne "y");
 }
 
 # Get newest semver and bump by one in patch number
@@ -112,6 +117,7 @@ chomp($stdin);
 if (length $stdin == 0) {
     print "Using default $newver as new version...\n";
 } else {
+    die "Invalid semver: $stdin\n" unless $stdin =~ /^\d+\.\d+\.\d+/;
     $newver = $stdin;
     print "Using provided $newver as new version...\n";
 }
