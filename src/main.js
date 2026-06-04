@@ -11,11 +11,11 @@ const SERIES_COLORS = [
 
 const VALUE_THRESHOLDS = [
     { min: 0,   max: 50,       color: '#30b94d', name: 'Good' },
-    { min: 50,  max: 100,      color: '#a4cc35', name: 'Moderate' },
-    { min: 100, max: 200,      color: '#e8c820', name: 'Unhealthy' },
-    { min: 200, max: 300,      color: '#ff9500', name: 'Very Unhealthy' },
-    { min: 300, max: 400,      color: '#ff3b30', name: 'Hazardous' },
-    { min: 400, max: Infinity,  color: '#8b4513', name: 'Very Hazardous' },
+    { min: 51,  max: 100,      color: '#a4cc35', name: 'Moderate' },
+    { min: 101, max: 200,      color: '#e8c820', name: 'Unhealthy' },
+    { min: 201, max: 300,      color: '#ff9500', name: 'Very Unhealthy' },
+    { min: 301, max: 400,      color: '#ff3b30', name: 'Hazardous' },
+    { min: 401, max: Infinity,  color: '#8b4513', name: 'Very Hazardous' },
 ];
 
 function valueColor(v) {
@@ -26,6 +26,7 @@ function valueColor(v) {
 }
 
 let DATA;
+let VERSION;
 
 // null = all
 let activeSeries = null;
@@ -442,18 +443,12 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     });
 });
 
-/* ── theme toggle ── */
-(function initTheme() {
-    const root = document.documentElement;
-    const saved = localStorage.getItem('tsv-theme');
-    if (saved) root.dataset.theme = saved;
-
-    document.getElementById('theme-toggle').addEventListener('click', () => {
-        const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
-        root.dataset.theme = next;
-        localStorage.setItem('tsv-theme', next);
-    });
-})();
+/* ── theme ── */
+document.getElementById('theme-toggle').addEventListener('click', () => {
+    const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = next;
+    localStorage.setItem('tsv-theme', next);
+});
 
 /* ── regenerate data ── */
 document.getElementById('regen-btn').addEventListener('click', () => {
@@ -464,23 +459,34 @@ document.getElementById('regen-btn').addEventListener('click', () => {
 const REFRESH_INTERVAL = 60*1000; // Refresh data every minute
 
 async function refreshAll() {
-    await update();
+    if(!await update()) {
+        DATA = JSON.parse(localStorage.getItem('psi-data'));
+    }
     refreshChart();
     buildTable();
     buildSummary();
 }
 
 async function update() {
-    DATA = await invoke("update");
+    const fetched = await invoke("update");
+    if(fetched.length == 0) {
+        return false;
+    }
+    DATA = fetched;
+    localStorage.setItem('psi-data', JSON.stringify(fetched));
+    return true;
 }
 
 async function getAppVersion() {
-    const version = await invoke("get_app_version");
-    const latestVersion = await invoke("check_latest_release_version");
+    VERSION = await invoke("get_app_version");
     document.getElementById('app-version').innerHTML = 
         `<h2>Version</h2>
-        <p>v${version}</p>`;
-    if (version != latestVersion && latestVersion != "") {
+        <p>v${VERSION}</p>`;
+}
+
+async function checkNewVersion() {
+    const latestVersion = await invoke("check_latest_release_version");
+    if (VERSION != latestVersion && latestVersion != "") {
         document.getElementById('app-version').innerHTML += 
         `<p>Update Available: <a href="#" onclick="openExternal('https://github.com/agx-hv/1hpsi/releases/latest')">v${latestVersion}</a></p>`;
     }
@@ -493,7 +499,9 @@ async function openExternal(url) {
 window.addEventListener("DOMContentLoaded", () => {
     /* ── init ── */
     buildLegend();
-    refreshAll();
     getAppVersion();
+    DATA = JSON.parse(localStorage.getItem('psi-data'));
+    checkNewVersion();
+    refreshAll();
     setInterval(refreshAll, REFRESH_INTERVAL);
 });

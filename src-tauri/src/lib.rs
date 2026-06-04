@@ -98,7 +98,7 @@ fn fetch_psi() -> Result<PsiResponse, String> {
         .as_nanos();
     let path = format!(
         "https://www.haze.gov.sg/api/airquality/jsondata/{}",
-        epoch_ns
+        epoch_ns,
     );
 
     // Send GET request and read raw response
