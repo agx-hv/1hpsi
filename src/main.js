@@ -2,7 +2,7 @@
 const { invoke } = window.__TAURI__.core;
 const { openUrl } = window.__TAURI__.opener;
 
-/* ── data generation ── */
+/* ---- data generation ---- */
 const SERIES_LABELS = ['Overall', 'North', 'South', 'East', 'West', 'Central'];
 const SERIES_COLORS = [
     'var(--series-0)', 'var(--series-1)', 'var(--series-2)',
@@ -15,7 +15,7 @@ const VALUE_THRESHOLDS = [
     { min: 101, max: 200,      color: '#e8c820', name: 'Unhealthy' },
     { min: 201, max: 300,      color: '#ff9500', name: 'Very Unhealthy' },
     { min: 301, max: 400,      color: '#ff3b30', name: 'Hazardous' },
-    { min: 401, max: Infinity,  color: '#8b4513', name: 'Very Hazardous' },
+    { min: 400, max: Infinity,  color: '#8b4513', name: 'Very Hazardous' },
 ];
 
 function valueColor(v) {
@@ -31,7 +31,7 @@ let VERSION;
 // null = all
 let activeSeries = null;
 
-/* ── SVG helpers ── */
+/* ---- SVG helpers ---- */
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 function svgEl(tag, attrs = {}) {
@@ -46,7 +46,7 @@ function svgText(content, attrs = {}) {
     return el;
 }
 
-/* ── chart constants ── */
+/* ---- chart constants ---- */
 const VB = { w: 800, h: 400, padT: 20, padR: 20, padB: 65, padL: 58 };
 const plotW = VB.w - VB.padL - VB.padR;
 const plotH = VB.h - VB.padT - VB.padB;
@@ -69,7 +69,7 @@ function niceTicks(min, max, count = 5) {
     return ticks;
 }
 
-/* ── build chart ── */
+/* ---- build chart ---- */
 function buildChart() {
     const svg = document.getElementById('chart');
     while (svg.firstChild) svg.removeChild(svg.firstChild);
@@ -260,7 +260,7 @@ function buildChart() {
     svg.appendChild(overlayEl);
 }
 
-/* ── table (newest first) ── */
+/* ---- table (newest first) ---- */
 function buildTable() {
     const table = document.getElementById('data-table');
     while (table.firstChild) table.removeChild(table.firstChild);
@@ -307,7 +307,7 @@ function buildTable() {
     table.appendChild(tbody);
 }
 
-/* ── series selector ── */
+/* ---- series selector ---- */
 function buildSeriesSelector() {
     const container = document.getElementById('series-selector');
     while (container.firstChild) container.removeChild(container.firstChild);
@@ -344,7 +344,7 @@ function refreshChart() {
     buildChart();
 }
 
-/* ── summary view ── */
+/* ---- summary view ---- */
 function buildSummary() {
     const container = document.getElementById('summary-content');
     while (container.firstChild) container.removeChild(container.firstChild);
@@ -430,7 +430,7 @@ function buildLegend() {
     table.appendChild(tbody);
 }
 
-/* ── tabs ── */
+/* ---- tabs ---- */
 document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -443,25 +443,23 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     });
 });
 
-/* ── theme ── */
+/* ---- theme ---- */
 document.getElementById('theme-toggle').addEventListener('click', () => {
     const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
     root.dataset.theme = next;
     localStorage.setItem('tsv-theme', next);
 });
 
-/* ── regenerate data ── */
+/* ---- regenerate data ---- */
 document.getElementById('regen-btn').addEventListener('click', () => {
     refreshAll();
 });
 
-/* ── auto-refresh interval (ms) ── */
+/* ---- auto-refresh interval (ms) ---- */
 const REFRESH_INTERVAL = 60*1000; // Refresh data every minute
 
 async function refreshAll() {
-    if(!await update()) {
-        DATA = JSON.parse(localStorage.getItem('psi-data'));
-    }
+    await update();
     refreshChart();
     buildTable();
     buildSummary();
@@ -470,11 +468,11 @@ async function refreshAll() {
 async function update() {
     const fetched = await invoke("update");
     if(fetched.length == 0) {
-        return false;
+        DATA = JSON.parse(localStorage.getItem('psi-data'));
+        return;
     }
     DATA = fetched;
     localStorage.setItem('psi-data', JSON.stringify(fetched));
-    return true;
 }
 
 async function getAppVersion() {
@@ -488,7 +486,12 @@ async function checkNewVersion() {
     const latestVersion = await invoke("check_latest_release_version");
     if (VERSION != latestVersion && latestVersion != "") {
         document.getElementById('app-version').innerHTML += 
-        `<p>Update Available: <a href="#" onclick="openExternal('https://github.com/agx-hv/1hpsi/releases/latest')">v${latestVersion}</a></p>`;
+        `<p>
+            Update Available: 
+            <a href="#" onclick="openExternal('https://github.com/agx-hv/1hpsi/releases/latest')">
+                v${latestVersion}
+            </a>
+        </p>`;
     }
 }
 
@@ -496,12 +499,26 @@ async function openExternal(url) {
     await openUrl(url);
 }
 
-window.addEventListener("DOMContentLoaded", () => {
-    /* ── init ── */
+function initialize() {
     buildLegend();
-    getAppVersion();
-    DATA = JSON.parse(localStorage.getItem('psi-data'));
+    const cached = localStorage.getItem('psi-data');
+    if (cached != null) {
+        DATA = JSON.parse(cached);
+        refreshChart();
+        buildTable();
+        buildSummary();
+    }
+}
+
+async function main() {
     checkNewVersion();
-    refreshAll();
+    await refreshAll();
     setInterval(refreshAll, REFRESH_INTERVAL);
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+    /* ---- init ---- */
+    initialize();
+    getAppVersion();
+    setTimeout(main, 1000);
 });
