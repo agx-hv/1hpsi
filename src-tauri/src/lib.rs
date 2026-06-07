@@ -1,5 +1,12 @@
 use std::collections::HashMap;
-use ureq::ResponseExt;
+use serde_json::{json, Value};
+
+// For development use only: to simulate blocking network request
+#[allow(dead_code)]
+#[tauri::command]
+fn sleep() {
+    std::thread::sleep(std::time::Duration::from_secs(5));
+}
 
 #[tauri::command]
 fn get_app_version() -> String {
@@ -8,12 +15,11 @@ fn get_app_version() -> String {
 
 #[tauri::command]
 fn check_latest_release_version() -> String {
-    if let Ok(res) = ureq::get("https://github.com/agx-hv/1hpsi/releases/latest").call() {
-        return res
-            .get_uri()
-            .to_string()
-            .trim_start_matches("https://github.com/agx-hv/1hpsi/releases/tag/v")
-            .to_string();
+    if let Ok(mut res) = ureq::get("https://api.github.com/repos/agx-hv/1hpsi/releases/latest").call() {
+        let body = &res.body_mut().read_to_string().unwrap_or_default();
+        let json_value: Value = serde_json::from_str(body).unwrap_or_default();
+        let tag_name = json_value.get("tag_name").unwrap_or(&json!("")).to_string();
+        return tag_name.replace("\"","").trim_start_matches("v").to_string();
     }
     "".to_string()
 }
@@ -54,6 +60,7 @@ fn update() -> Vec<HashMap<String, String>> {
         }
         return output;
     }
+    // Return empty vec if parse fails
     vec![]
 }
 
@@ -79,6 +86,8 @@ pub fn run() {
             update,
             get_app_version,
             check_latest_release_version,
+            // Uncomment for development
+            //sleep, 
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -96,14 +105,14 @@ fn fetch_psi() -> Result<PsiResponse, String> {
         .duration_since(UNIX_EPOCH)
         .map_err(|e| e.to_string())?
         .as_nanos();
+
     let path = format!(
         "https://www.haze.gov.sg/api/airquality/jsondata/{}",
-        epoch_ns
+        epoch_ns,
     );
 
     // Send GET request and read raw response
     let body = get(&path).map_err(|e| e.to_string())?;
-
     let parsed = parse_psi_response(&body).map_err(|e| e.to_string())?;
 
     // Return the parsed PSI response
