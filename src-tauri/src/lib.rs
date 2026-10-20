@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use serde_json::{json, Value};
+use psi::models::Pm25Readings;
 
 // For development use only: to simulate blocking network request
 #[allow(dead_code)]
@@ -26,6 +27,7 @@ fn check_latest_release_version() -> String {
 
 #[tauri::command]
 fn update() -> Vec<HashMap<String, String>> {
+    let mut output = vec![];
     if let Ok(parsed) = fetch_psi() {
         let pm25_data = parsed.chart_1hr_pm25;
         let (north, south, east, west, central) = (
@@ -35,7 +37,6 @@ fn update() -> Vec<HashMap<String, String>> {
             pm25_data.west.output(),
             pm25_data.central.output(),
         );
-        let mut output = vec![];
         for i in 0..24 {
             let mut record = HashMap::new();
             let (n, s, e, w, c) = (
@@ -56,12 +57,43 @@ fn update() -> Vec<HashMap<String, String>> {
             record.insert("East".to_string(), e);
             record.insert("West".to_string(), w);
             record.insert("Central".to_string(), c);
+            //println!("{:?}", record["timestamp"]);
             output.push(record);
         }
-        return output;
     }
-    // Return empty vec if parse fails
-    vec![]
+    if let Ok(parsed) = fetch_current_pm25() {
+        let mut record = HashMap::new();
+        let (n, s, e, w, c) = (
+            psi::conversions::pm25_to_psi(parsed.hourly.north).unwrap_or(0.0),
+            psi::conversions::pm25_to_psi(parsed.hourly.south).unwrap_or(0.0),
+            psi::conversions::pm25_to_psi(parsed.hourly.east).unwrap_or(0.0),
+            psi::conversions::pm25_to_psi(parsed.hourly.west).unwrap_or(0.0),
+            psi::conversions::pm25_to_psi(parsed.hourly.central).unwrap_or(0.0),
+        );
+        let mut mean = 0.0;
+        for v in [&n, &s, &e, &w, &c] {
+            mean += v / 5.0;
+        }
+        
+        let mut ts = parsed.timestamp;
+        ts = ts.replace("+08:00", ".000");
+
+        record.insert("timestamp".to_string(), ts.clone());
+        record.insert("Overall".to_string(), mean.round().to_string());
+        record.insert("North".to_string(), n.round().to_string());
+        record.insert("South".to_string(), s.round().to_string());
+        record.insert("East".to_string(), e.round().to_string());
+        record.insert("West".to_string(), w.round().to_string());
+        record.insert("Central".to_string(), c.round().to_string());
+
+        if ts == output.last().unwrap()["timestamp"] {
+            output.pop();
+        } else {
+            output.remove(0);
+        }
+        output.push(record);
+    }
+    output
 }
 
 mod network;
@@ -117,4 +149,26 @@ fn fetch_psi() -> Result<PsiResponse, String> {
 
     // Return the parsed PSI response
     Ok(parsed)
+}
+
+/// Fetch current PM2.5 values using new more timely API
+fn fetch_current_pm25() -> Result<Pm25Readings, String> {
+    use network::client::get;
+    use psi::models::{
+        Pm25Hourly,
+        Pm25Readings
+    };
+    let path =  "https://api-open.data.gov.sg/v2/real-time/api/pm25";
+
+    // Send GET request and read raw response
+    let body = get(&path).map_err(|e| e.to_string())?;
+    let v: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
+
+    let item = &v["data"]["items"][0];
+    let hourly = &v["data"]["items"][0]["readings"]["pm25_one_hourly"];
+    let mut pm25_readings: Pm25Readings = serde_json::from_str(&item.to_string()).unwrap_or_default();
+
+    let pm25_hourly: Pm25Hourly = serde_json::from_str(&hourly.to_string()).unwrap_or_default();
+    pm25_readings.hourly = pm25_hourly;
+    Ok(pm25_readings)
 }
