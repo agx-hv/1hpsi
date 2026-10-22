@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize, Serialize, Default)]
 pub struct Pm25Readings {
     pub date: String,
-    pub updatedTimestamp: String,
+    #[serde(rename = "updatedTimestamp")]
+    pub updated_timestamp: String,
     pub timestamp: String,
 
     #[serde(skip)]
@@ -72,7 +73,19 @@ pub struct RegionSeries {
 
 use chrono::NaiveDateTime;
 impl RegionSeries {
-    pub fn output(&self) -> Vec<(String, String)> {
+    pub fn output_psi(&self) -> Vec<(String, String)> {
+        let mut result = vec![];
+        for dp in &self.data {
+            let dt =
+                NaiveDateTime::parse_from_str(&dp.proper_date_time(), "%d %b %Y %I:%M%p").unwrap();
+
+            let iso_date_time = dt.format("%Y-%m-%dT%H:%M:%S.%3f").to_string();
+
+            result.push((iso_date_time, dp.rounded_psi_string()));
+        }
+        result
+    }
+    pub fn output_pm25(&self) -> Vec<(String, String)> {
         let mut result = vec![];
         for dp in &self.data {
             let dt =
@@ -104,11 +117,15 @@ impl DataPoint {
         self.date_time.replace("PM", ":00PM").replace("AM", ":00AM")
     }
 
-    pub fn rounded_pm25_string(&self) -> String {
+    pub fn rounded_psi_string(&self) -> String {
         match self.psi_value() {
             Some(v) => v.round().to_string(),
             None => "N/A".to_string(),
         }
+    }
+
+    pub fn rounded_pm25_string(&self) -> String {
+        self.value.round().to_string()
     }
 
     fn psi_value(&self) -> Option<f32> {

@@ -1,4 +1,6 @@
 # Changelog
+### v0.2.1
+- Added hourly PM2.5 readings and toggle
 ### v0.2.0
 - Added a new API for faster loading of current hour PSI readings
 ### v0.1.4

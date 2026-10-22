@@ -9,7 +9,23 @@ const SERIES_COLORS = [
     'var(--series-3)', 'var(--series-4)', 'var(--series-5)',
 ];
 
-const VALUE_THRESHOLDS = [
+const PM25_THRESHOLDS = [
+    { min: 0,   max: 15,       color: '#30b94d', name: 'Normal (within WHO guidelines)' },
+    { min: 16,  max: 55,      color: '#a4cc35', name: 'Normal (NEA\'s definition)' },
+    { min: 56,  max: 150,      color: '#e8c820', name: 'Elevated' },
+    { min: 151, max: 250,      color: '#ff9500', name: 'High' },
+    { min: 251, max: 350,      color: '#ff3b30', name: 'Very High' },
+    { min: 350, max: Infinity,  color: '#8b4513', name: 'Extremely High' },
+];
+
+function pm25Color(v) {
+    for (const t of PM25_THRESHOLDS) {
+        if (v <= t.max) return t.color;
+    }
+    return PM25_THRESHOLDS.at(-1).color;
+}
+
+const PSI_THRESHOLDS = [
     { min: 0,   max: 50,       color: '#30b94d', name: 'Good' },
     { min: 51,  max: 100,      color: '#a4cc35', name: 'Moderate' },
     { min: 101, max: 200,      color: '#e8c820', name: 'Unhealthy' },
@@ -18,14 +34,17 @@ const VALUE_THRESHOLDS = [
     { min: 400, max: Infinity,  color: '#8b4513', name: 'Very Hazardous' },
 ];
 
-function valueColor(v) {
-    for (const t of VALUE_THRESHOLDS) {
+function psiColor(v) {
+    for (const t of PSI_THRESHOLDS) {
         if (v <= t.max) return t.color;
     }
-    return VALUE_THRESHOLDS.at(-1).color;
+    return PSI_THRESHOLDS.at(-1).color;
 }
 
 let DATA;
+let PSI;
+let PM25;
+let READING_TYPE = "psi";
 let VERSION;
 
 // null = all
@@ -79,11 +98,14 @@ function buildChart() {
         ? SERIES_LABELS.map((_, i) => i)
         : [activeSeries];
 
-    const times = DATA.map(r => new Date(r.timestamp).getTime());
+    const SERIES = DATA[READING_TYPE];
+    const UNIT = READING_TYPE == "psi" ? "" : "µg/m³";
+    const VERTICAL_AXIS_TITLE = READING_TYPE == "psi" ? "PSI" : "PM2.5 (µg/m³)";
+    const times = SERIES.map(r => new Date(r.timestamp).getTime());
     const tMin = times[0], tMax = times[times.length - 1];
 
     let vMax = -Infinity;
-    for (const row of DATA) {
+    for (const row of SERIES) {
         for (const key of SERIES_LABELS) {
             const v = +row[key];
             if (v > vMax) vMax = v;
@@ -109,15 +131,15 @@ function buildChart() {
         }));
     }
 
-    const xStep = Math.ceil(DATA.length / 6);
-    const lastIdx = DATA.length - 1;
+    const xStep = Math.ceil(SERIES.length / 6);
+    const lastIdx = SERIES.length - 1;
     const xTickIndices = [];
-    for (let i = 0; i < DATA.length; i += xStep) xTickIndices.push(i);
+    for (let i = 0; i < SERIES.length; i += xStep) xTickIndices.push(i);
     if (xTickIndices[xTickIndices.length - 1] !== lastIdx) xTickIndices.push(lastIdx);
 
     for (const i of xTickIndices) {
         const x = xScale(times[i]);
-        const dt = new Date(DATA[i].timestamp);
+        const dt = new Date(SERIES[i].timestamp);
         const label = i === lastIdx
             ? 'Now'
             : dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -141,7 +163,7 @@ function buildChart() {
         y: VB.h - 4,
         'text-anchor': 'middle',
     }));
-    svg.appendChild(svgText('Value', {
+    svg.appendChild(svgText(VERTICAL_AXIS_TITLE, {
         class: 'axis-title',
         x: 0, y: 0,
         'text-anchor': 'middle',
@@ -156,7 +178,7 @@ function buildChart() {
     for (const si of drawOrder) {
         const key = SERIES_LABELS[si];
         const color = SERIES_COLORS[si];
-        const values = DATA.map(r => r[key]);
+        const values = SERIES.map(r => r[key]);
         const isPrimary = !showAll || si === 0;
 
         const areaPoints = [
@@ -216,7 +238,7 @@ function buildChart() {
         const scaleX = VB.w / rect.width;
         const svgX = (ev.clientX - rect.left) * scaleX;
         const pctX = Math.max(0, Math.min(1, (svgX - VB.padL) / plotW));
-        const idx = Math.min(DATA.length - 1, Math.round(pctX * (DATA.length - 1)));
+        const idx = Math.min(SERIES.length - 1, Math.round(pctX * (SERIES.length - 1)));
 
         const cx = xScale(times[idx]);
         crosshairGroup.setAttribute('visibility', 'visible');
@@ -224,12 +246,12 @@ function buildChart() {
         crosshairGroup.querySelector('#ch-x').setAttribute('x2', cx);
 
         for (const { si, dot } of dots) {
-            const cy = yScale(DATA[idx][SERIES_LABELS[si]]);
+            const cy = yScale(SERIES[idx][SERIES_LABELS[si]]);
             dot.setAttribute('cx', cx);
             dot.setAttribute('cy', cy);
         }
 
-        const row = DATA[idx];
+        const row = SERIES[idx];
         const dt = new Date(row.timestamp);
         const dateStr = dt.toLocaleString([], {
             month: 'short', day: 'numeric',
@@ -239,11 +261,13 @@ function buildChart() {
         let html = `<div class="tt-ts">${dateStr}</div>`;
         for (const si of visible) {
             const key = SERIES_LABELS[si];
-            html += `<div class="tt-row">
-        <span class="tt-swatch" style="background:${SERIES_COLORS[si]}"></span>
-        <span class="tt-label">${key}:</span>
-        <span class="tt-value">${row[key]}</span>
-      </div>`;
+            if (/^\d+$/.test(row[key])) { // simple regex check for numeric data to prevent HTML injection below
+                html += `<div class="tt-row">
+                             <span class="tt-swatch" style="background:${SERIES_COLORS[si]}"></span>
+                             <span class="tt-label">${key}:</span>
+                             <span class="tt-value">${row[key]} ${UNIT}</span>
+                         </div>`;
+            }
         }
         const isLeftHalf = (idx < 13);
         tooltip.innerHTML = html;
@@ -272,6 +296,8 @@ function buildTable() {
     thTs.textContent = 'Timestamp';
     headRow.appendChild(thTs);
 
+    const UNIT = READING_TYPE == "psi" ? "" : "µg/m³";
+    const SERIES = DATA[READING_TYPE];
     for (let si = 0; si < SERIES_LABELS.length; si++) {
         const th = document.createElement('th');
         th.textContent = SERIES_LABELS[si];
@@ -281,7 +307,7 @@ function buildTable() {
     table.appendChild(thead);
 
     const tbody = document.createElement('tbody');
-    const sorted = [...DATA].reverse();
+    const sorted = [...SERIES].reverse();
 
     for (const row of sorted) {
         const tr = document.createElement('tr');
@@ -297,8 +323,10 @@ function buildTable() {
 
         for (const key of SERIES_LABELS) {
             const td = document.createElement('td');
-            td.textContent = row[key];
-            td.style.color = valueColor(row[key]);
+            if (/^\d+$/.test(row[key])) { // simple regex check for numeric data to prevent HTML injection below
+                td.innerHTML = `${row[key]} <p style="color: var(--text-sub)">${UNIT}</p>`;
+                td.style.color = READING_TYPE == "psi" ? psiColor(row[key]) : pm25Color(row[key]);
+            }
             tr.appendChild(td);
         }
         tbody.appendChild(tr);
@@ -349,7 +377,9 @@ function buildSummary() {
     const container = document.getElementById('summary-content');
     while (container.firstChild) container.removeChild(container.firstChild);
 
-    const latest = DATA[DATA.length - 1];
+    const unit = READING_TYPE == "pm25" ? '<p style="color: var(--text-sub); font-size: 14px">µg/m³</p>' : "";
+    const series = DATA[READING_TYPE];
+    const latest = series[series.length - 1];
     const dt = new Date(latest.timestamp);
     const dateStr = dt.toLocaleString([], {
         month: 'short',
@@ -379,11 +409,14 @@ function buildSummary() {
         label.style.color = 'var(--text-sub)';
         card.appendChild(label);
 
-        const val = document.createElement('div');
-        val.className = 'summary-value';
-        val.textContent = latest[k];
-        val.style.color = valueColor(latest[k]);
-        card.appendChild(val);
+        const reading = latest[k];
+        if (/^\d+$/.test(reading)) { // simple regex check for numeric data to prevent HTML injection below
+            const val = document.createElement('div');
+            val.className = 'summary-value';
+            val.innerHTML = '<center>' + reading + '</center>' + unit; // potential injection site here
+            val.style.color = READING_TYPE == "pm25" ? pm25Color(reading) : psiColor(reading);
+            card.appendChild(val);
+        }
 
         container.appendChild(card);
     });
@@ -404,7 +437,8 @@ function buildLegend() {
     table.appendChild(thead);
 
     const tbody = document.createElement('tbody');
-    for (const t of VALUE_THRESHOLDS) {
+    const THRESHOLDS = READING_TYPE == "pm25" ? PM25_THRESHOLDS : PSI_THRESHOLDS;
+    for (const t of THRESHOLDS) {
         const tr = document.createElement('tr');
 
         const tdSwatch = document.createElement('td');
@@ -443,6 +477,18 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     });
 });
 
+document.querySelectorAll('.tab-btn-2').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn-2').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        READING_TYPE = btn.dataset.tab;
+        buildSummary();
+        buildLegend();
+        buildChart();
+        buildTable();
+    });
+});
+
 /* ---- theme ---- */
 document.getElementById('theme-toggle').addEventListener('click', () => {
     const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
@@ -468,11 +514,15 @@ async function refreshAll() {
 async function update() {
     const fetched = await invoke("update");
     if(fetched.length == 0) {
-        DATA = JSON.parse(localStorage.getItem('psi-data'));
+        DATA = JSON.parse(localStorage.getItem('data'));
+        PSI = DATA["psi"];
+        PM25 = DATA["pm25"];
         return;
     }
     DATA = fetched;
-    localStorage.setItem('psi-data', JSON.stringify(fetched));
+    PSI = DATA["psi"];
+    PM25 = DATA["pm25"];
+    localStorage.setItem('data', JSON.stringify(fetched));
 }
 
 async function getAppVersion() {
@@ -501,9 +551,11 @@ async function openExternal(url) {
 
 function initialize() {
     buildLegend();
-    const cached = localStorage.getItem('psi-data');
+    const cached = localStorage.getItem('data');
     if (cached != null) {
         DATA = JSON.parse(cached);
+        PSI = DATA["psi"];
+        PM25 = DATA["pm25"];
         refreshChart();
         buildTable();
         buildSummary();

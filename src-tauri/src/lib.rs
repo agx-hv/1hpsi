@@ -26,16 +26,19 @@ fn check_latest_release_version() -> String {
 }
 
 #[tauri::command]
-fn update() -> Vec<HashMap<String, String>> {
-    let mut output = vec![];
+fn update() -> HashMap<String,Vec<HashMap<String, String>>> {
+    let mut output = HashMap::new();
+    let mut psi_vec = vec![];
+    let mut pm25_vec = vec![];
+
     if let Ok(parsed) = fetch_psi() {
         let pm25_data = parsed.chart_1hr_pm25;
         let (north, south, east, west, central) = (
-            pm25_data.north.output(),
-            pm25_data.south.output(),
-            pm25_data.east.output(),
-            pm25_data.west.output(),
-            pm25_data.central.output(),
+            pm25_data.north.output_pm25(),
+            pm25_data.south.output_pm25(),
+            pm25_data.east.output_pm25(),
+            pm25_data.west.output_pm25(),
+            pm25_data.central.output_pm25(),
         );
         for i in 0..24 {
             let mut record = HashMap::new();
@@ -57,11 +60,73 @@ fn update() -> Vec<HashMap<String, String>> {
             record.insert("East".to_string(), e);
             record.insert("West".to_string(), w);
             record.insert("Central".to_string(), c);
-            //println!("{:?}", record["timestamp"]);
-            output.push(record);
+            pm25_vec.push(record);
+        }
+
+        let (north, south, east, west, central) = (
+            pm25_data.north.output_psi(),
+            pm25_data.south.output_psi(),
+            pm25_data.east.output_psi(),
+            pm25_data.west.output_psi(),
+            pm25_data.central.output_psi(),
+        );
+        for i in 0..24 {
+            let mut record = HashMap::new();
+            let (n, s, e, w, c) = (
+                north[i].1.clone(),
+                south[i].1.clone(),
+                east[i].1.clone(),
+                west[i].1.clone(),
+                central[i].1.clone(),
+            );
+            let mut mean = 0.0;
+            for v in [&n, &s, &e, &w, &c] {
+                mean += str::parse::<f32>(v).unwrap_or(0.0) / 5.0;
+            }
+            record.insert("timestamp".to_string(), north[i].0.clone());
+            record.insert("Overall".to_string(), mean.round().to_string());
+            record.insert("North".to_string(), n);
+            record.insert("South".to_string(), s);
+            record.insert("East".to_string(), e);
+            record.insert("West".to_string(), w);
+            record.insert("Central".to_string(), c);
+            psi_vec.push(record);
         }
     }
+
     if let Ok(parsed) = fetch_current_pm25() {
+        let mut record = HashMap::new();
+        let (n, s, e, w, c) = (
+            parsed.hourly.north,
+            parsed.hourly.south,
+            parsed.hourly.east,
+            parsed.hourly.west,
+            parsed.hourly.central,
+        );
+        let mut mean = 0.0;
+        for v in [&n, &s, &e, &w, &c] {
+            mean += v / 5.0;
+        }
+        
+        let mut ts = parsed.timestamp.clone();
+        ts = ts.replace("+08:00", ".000");
+
+        record.insert("timestamp".to_string(), ts.clone());
+        record.insert("Overall".to_string(), mean.round().to_string());
+        record.insert("North".to_string(), n.round().to_string());
+        record.insert("South".to_string(), s.round().to_string());
+        record.insert("East".to_string(), e.round().to_string());
+        record.insert("West".to_string(), w.round().to_string());
+        record.insert("Central".to_string(), c.round().to_string());
+
+        if ts == *pm25_vec.last().unwrap_or(&HashMap::new()).get("timestamp").unwrap_or(&"".to_string()) {
+            pm25_vec.pop();
+        } else {
+            pm25_vec.remove(0);
+        }
+
+        pm25_vec.push(record);
+
         let mut record = HashMap::new();
         let (n, s, e, w, c) = (
             psi::conversions::pm25_to_psi(parsed.hourly.north).unwrap_or(0.0),
@@ -86,13 +151,16 @@ fn update() -> Vec<HashMap<String, String>> {
         record.insert("West".to_string(), w.round().to_string());
         record.insert("Central".to_string(), c.round().to_string());
 
-        if ts == output.last().unwrap()["timestamp"] {
-            output.pop();
+        if ts == *psi_vec.last().unwrap_or(&HashMap::new()).get("timestamp").unwrap_or(&"".to_string()) {
+            psi_vec.pop();
         } else {
-            output.remove(0);
+            psi_vec.remove(0);
         }
-        output.push(record);
+
+        psi_vec.push(record);
     }
+    output.insert("pm25".to_string(),pm25_vec);
+    output.insert("psi".to_string(),psi_vec);
     output
 }
 

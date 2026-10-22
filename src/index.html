@@ -42,11 +42,20 @@
       <div class="hero-inner" id="app-version"></div>
     </section>
 
-    <nav class="tab-bar">
-      <button class="tab-btn active" data-tab="summary" type="button">Summary</button>
-      <button class="tab-btn" data-tab="chart" type="button">Chart</button>
-      <button class="tab-btn" data-tab="table" type="button">Table</button>
-    </nav>
+    <div class="nav-container">
+        <nav class="tab-bar">
+          <button class="tab-btn active" data-tab="summary" type="button">Summary</button>
+          <button class="tab-btn" data-tab="chart" type="button">Chart</button>
+          <button class="tab-btn" data-tab="table" type="button">Table</button>
+        </nav>
+
+        <div id="pm25-switch" class="view">
+            <nav class="tab-bar-2" >
+              <button class="tab-btn-2 active" data-tab="psi" type="button">1h PSI</button>
+              <button class="tab-btn-2" data-tab="pm25" type="button">1h PM2.5</button>
+            </nav>
+        </div>
+    </div>
 
     <div id="view-chart" class="view hidden">
       <section class="panel">
